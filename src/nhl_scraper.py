@@ -22,12 +22,20 @@ def get_team_stats(team_abbr: str) -> List[Dict]:
     """
     Fetches real-time roster stats for a given team abbreviation.
     """
-    # Using the new NHL web API endpoint (2024 version)
     url = f"https://api-web.nhle.com/v1/club-stats/{team_abbr}/now"
     
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() # Stop execution if API is down
+        # Standard header to avoid simple bot detection
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        # Specific check for Rate Limiting (429)
+        if response.status_code == 429:
+            print(f"Rate limit hit for {team_abbr}. Waiting 5 seconds...")
+            time.sleep(5)
+            return []
+
+        response.raise_for_status() 
         data = response.json()
         
         processed_players = []
@@ -36,8 +44,8 @@ def get_team_stats(team_abbr: str) -> List[Dict]:
                 'Team': team_abbr,
                 'Player': f"{player['firstName']['default']} {player['lastName']['default']}",
                 'Position': player.get('positionCode', 'N/A'),
-                # Safety check: gamesPlayed can be 0 for call-ups, defaulting to 1 avoids ZeroDivisionError later
-                'GamesPlayed': player.get('gamesPlayed', 1), 
+                # We use 0 here because the vectorization handles the math safely
+                'GamesPlayed': player.get('gamesPlayed', 0), 
                 'Goals': player.get('goals', 0),
                 'Assists': player.get('assists', 0),
                 'Points': player.get('points', 0),
@@ -52,30 +60,29 @@ def get_team_stats(team_abbr: str) -> List[Dict]:
 
 def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds calculated metrics (PPG, Shooting %) for deeper analysis.
+    Adds calculated metrics using vectorized Pandas operations for efficiency.
     """
-    # Metric 1: Points Per Game (Efficiency)
-    df['Pts_Per_Game'] = (df['Points'] / df['GamesPlayed']).round(2)
+    # Vectorized Points Per Game: fillna(0) handles players with 0 GamesPlayed
+    df['Pts_Per_Game'] = (df['Points'] / df['GamesPlayed']).fillna(0).round(2)
     
-    # Metric 2: Shooting Percentage
-    # We only calculate this if players have at least 1 shot to keep data clean
-    df['Shooting_Pct'] = df.apply(
-        lambda x: round((x['Goals'] / x['Shots']) * 100, 1) if x['Shots'] > 0 else 0.0, axis=1
-    )
+    # Vectorized Shooting Percentage: (Goals / Shots) * 100
+    df['Shooting_Pct'] = (df['Goals'] / df['Shots'] * 100).fillna(0).round(1)
     
     df['Last_Update'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return df
 
 def main():
-    print(f" NHL Scraper Live - Tracking: {TEAMS_TO_WATCH}")
+    print(f" NHL Scraper Live - Tracking: {len(TEAMS_TO_WATCH)} teams")
     print("   (Ctrl + C to stop)")
+
+    # Ensure the data directory exists before trying to save
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 
     while True:
         all_data = []
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"\n[{timestamp}] Ping NHL API...")
 
-        # 1. Fetch data for all teams
         for team in TEAMS_TO_WATCH:
             team_data = get_team_stats(team)
             if team_data:
@@ -83,16 +90,13 @@ def main():
                 print(f"   -> {team}: Got {len(team_data)} skaters")
 
         if all_data:
-            # 2. Process and Feature Engineering
             df = pd.DataFrame(all_data)
             df_enriched = enrich_data(df)
             
-            # Sort by Points to highlight top performers instantly
             df_final = df_enriched.sort_values(by='Points', ascending=False)
 
             try:
                 df_final.to_csv(OUTPUT_FILE, index=False)
-                
                 leader = df_final.iloc[0]
                 print(f"Data Saved. Top Tracked Player: {leader['Player']} ({leader['Team']}) - {leader['Points']} pts")
                 
