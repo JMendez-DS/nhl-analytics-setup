@@ -54,10 +54,7 @@ def get_team_stats(team_abbr: str, session: requests.Session) -> List[Dict]:
                 'PIM': player.get('penaltyMinutes', 0),
                 'GWG': player.get('gameWinningGoals', 0),
                 'PPG': player.get('powerPlayGoals', 0),
-                'SHG': player.get('shorthandedGoals', 0),
-                'FOW_Pct': round(player.get('faceoffWinPct', 0), 3),
-                'TOI_Per_Game': player.get('shootingPctg', 0),
-                'Avg_TOI_Str': player.get('timeOnIcePerGame', "00:00")
+                'SHG': player.get('shorthandedGoals', 0)
             })
         return processed_players
         
@@ -110,9 +107,9 @@ def main():
                 cols_order = [
                     'Player', 'Team', 'Position', 'GamesPlayed', 'Points', 
                     'Goals', 'Assists', 'Pts_Per_Game', 'Shooting_Pct', 
-                    'PlusMinus', 'PIM', 'GWG', 'PPG', 'SHG', 'FOW_Pct',
-                    'TOI_Per_Game', 'Avg_TOI_Str', 'Goal_Contribution_Pct',
-                    'Assists_Per_Game', 'Shots_Per_Game', 'Last_Update'
+                    'PlusMinus', 'PIM', 'GWG', 'PPG', 'SHG',
+                    'Goal_Contribution_Pct', 'Assists_Per_Game', 'Shots_Per_Game', 
+                    'Last_Update'
                 ]
                 
                 df_final = df_enriched[cols_order].sort_values(by='Points', ascending=False)
