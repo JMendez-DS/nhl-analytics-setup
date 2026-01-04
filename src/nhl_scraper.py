@@ -7,10 +7,7 @@ import os
 
 # --- CONFIG ---
 TEAMS_TO_WATCH = [
-    "ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", 
-    "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", 
-    "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", 
-    "VGK", "WSH", "WPG"
+    "COL", "EDM"
 ]
 REFRESH_RATE_MINUTES = 5          
 
